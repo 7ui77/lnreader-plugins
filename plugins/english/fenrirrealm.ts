@@ -111,9 +111,12 @@ class FenrirRealmPlugin implements Plugin.PluginBase {
       .first()
       .text();
 
-    let chapters = await fetchApi(
+        let chaptersRes = await fetchApi(
       this.site + '/api/novels/chapter-list/' + novelPath,
     ).then(r => r.json());
+
+    // Fix 1: Đảm bảo chapters luôn là mảng, chống crash nếu API trả về Object { data: [...] }
+    let chapters = Array.isArray(chaptersRes) ? chaptersRes : (chaptersRes.data || []);
 
     if (this.hideLocked) {
       chapters = chapters.filter((c: APIChapter) => !c.locked?.price);
@@ -123,7 +126,8 @@ class FenrirRealmPlugin implements Plugin.PluginBase {
       .map((c: APIChapter) => ({
         name:
           (c.locked?.price ? '🔒 ' : '') +
-          (c.group?.index === null ? '' : 'Vol ' + c.group?.index + ' ') +
+          // Fix 2: Đổi điều kiện kiểm tra group để không bị dính chữ 'undefined'
+          (!c.group ? '' : 'Vol ' + c.group.index + ' ') + 
           'Chapter ' +
           c.number +
           (c.title && c.title.trim() != 'Chapter ' + c.number
@@ -131,7 +135,8 @@ class FenrirRealmPlugin implements Plugin.PluginBase {
             : ''),
         path:
           novelPath +
-          (c.group?.index === null ? '' : '/' + c.group?.slug) +
+          // Fix 2: Tương tự cho đường dẫn URL của chương
+          (!c.group ? '' : '/' + c.group.slug) + 
           '/chapter-' +
           c.number,
         releaseTime: c.created_at,
@@ -140,6 +145,7 @@ class FenrirRealmPlugin implements Plugin.PluginBase {
       .sort(
         (a: ChapterInfo, b: ChapterInfo) => a.chapterNumber - b.chapterNumber,
       );
+
     return novel;
   }
 
