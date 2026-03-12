@@ -107,9 +107,18 @@ class FenrirRealmPlugin implements Plugin.PluginBase {
       .map((i, el) => loadCheerio(el).text())
       .toArray()
       .join(',');
-    novel.status = loadedCheerio('div.flex-1 > div.mb-3 > span.rounded-md')
-      .first()
-      .text();
+        // Fix 1: Tìm trạng thái linh hoạt hơn dựa trên nội dung text thay vì class cứng
+    let parsedStatus = loadedCheerio('span:contains("Ongoing"), span:contains("Completed"), span:contains("Hiatus")').first().text().trim();
+    if (!parsedStatus) {
+        parsedStatus = loadedCheerio('div.flex-1 span.rounded-md').first().text().trim();
+    }
+    novel.status = parsedStatus || 'Ongoing';
+
+    // Fix 2: Xóa các thẻ HTML rác (<p style...>) bị dính trong phần tóm tắt của thư viện
+    if (novel.summary) {
+        novel.summary = novel.summary.replace(/<[^>]+>/g, '').trim();
+    }
+
 
         let chaptersRes = await fetchApi(
       this.site + '/api/novels/chapter-list/' + novelPath,
