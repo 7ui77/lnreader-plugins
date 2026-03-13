@@ -110,22 +110,23 @@ class FenrirRealmPlugin implements Plugin.PluginBase {
       .join(',');
 
     // ==========================================
-    // FIX STATUS LẦN 2: Kết hợp Cheerio & Regex
+    // FIX STATUS LẦN 3: Bắt chuẩn xác JSON key
     // ==========================================
     let parsedStatus = '';
 
-    // Ưu tiên 1: Dùng Cheerio chọc thẳng vào thẻ span chứa màu nền (bg-...-800) và text-white
-    parsedStatus = loadedCheerio('div.mb-3 span.rounded-md.text-white').first().text().trim();
+    // Cách 1: Tóm chính xác key "status" trong chuỗi JSON của SvelteKit
+    const statusMatch = html.match(/"status"\s*:\s*"([^"]+)"/i);
+    if (statusMatch) {
+      parsedStatus = statusMatch[1].trim();
+    }
 
-    // Ưu tiên 2: Nếu giao diện đổi, quay về dùng Regex nhưng bắt chặt hơn
+    // Cách 2: Dự phòng Cheerio (quét lỏng hơn, tìm trực tiếp thẻ span chứa text trạng thái)
     if (!parsedStatus) {
-      const statusMatch = html.match(/status:\s*["']([^"']+)["']/i);
-      if (statusMatch) {
-        parsedStatus = statusMatch[1].trim();
-      }
+      parsedStatus = loadedCheerio('span:contains("Ongoing"), span:contains("Completed"), span:contains("Hiatus")').first().text().trim();
     }
 
     novel.status = parsedStatus || 'Ongoing';
+
 
     // Xóa các thẻ HTML rác bị dính trong phần tóm tắt
     if (novel.summary) {
