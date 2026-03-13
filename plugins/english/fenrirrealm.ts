@@ -142,13 +142,21 @@ class FenrirRealmPlugin implements Plugin.PluginBase {
     }
 
     // Tải danh sách chương AN TOÀN (Không sợ crash do JSON)
+    // Tải danh sách chương AN TOÀN (Đã thêm Headers để không bị SvelteKit/Cloudflare chặn)
     let chaptersRes;
     try {
-      chaptersRes = await fetchApi(
+      const response = await fetchApi(
         this.site + '/api/novels/chapter-list/' + novelPath,
-      ).then(r => r.json());
+        {
+          headers: {
+            'Accept': 'application/json, text/plain, */*',
+            'Referer': this.site + '/series/' + novelPath,
+          }
+        }
+      );
+      chaptersRes = await response.json();
     } catch (err) {
-      throw new Error('Không thể tải danh sách chương. Cần xác thực Cloudflare qua WebView, vui lòng thử lại.');
+      throw new Error('Không thể tải danh sách chương. Vui lòng thử xoá Cookie WebView trong cài đặt ứng dụng.');
     }
 
     let chapters = Array.isArray(chaptersRes) ? chaptersRes : (chaptersRes?.data || []);
