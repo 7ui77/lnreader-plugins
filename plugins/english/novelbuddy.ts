@@ -9,11 +9,7 @@ class NovelBuddy implements Plugin.PagePlugin {
   name = 'NovelBuddy';
   site = 'https://novelbuddy.com/';
   api = 'https://api.novelbuddy.com/';
-<<<<<<< HEAD
-  version = '2.1.1';
-=======
   version = '2.1.6';
->>>>>>> 44d48c1 (fix(novelbuddy): update comprehensive watermark removal regex)
   icon = 'src/en/novelbuddy/icon.png';
 
   parseNovels(body: Response): Plugin.NovelItem[] {
