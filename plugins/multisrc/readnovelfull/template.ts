@@ -454,7 +454,7 @@ class ReadNovelFullPlugin implements Plugin.PluginBase {
 
           if (!novelId) {
             const idMatch = novelPath.match(/\d+/);
-            novelId = idMatch ? idMatch[0] : null;
+            novelId = idMatch ? idMatch[0] : novelPath.split('/').pop() || null;
           }
         } else {
           novel.genres = genreArray.join('').trim();
@@ -480,7 +480,9 @@ class ReadNovelFullPlugin implements Plugin.PluginBase {
       const params = new URLSearchParams({ [ajaxParam]: novelId });
       const chaptersUrl = `${this.site}${chapterListing}?${params.toString()}`;
 
-      const ajaxResult = await fetchApi(chaptersUrl);
+      const ajaxResult = await fetchApi(chaptersUrl, {
+        headers: { 'Referer': url },
+      });
       if (!ajaxResult.ok) {
         console.error(`Failed to fetch chapters: ${ajaxResult.status}`);
         novel.chapters = [];
