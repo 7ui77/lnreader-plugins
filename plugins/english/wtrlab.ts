@@ -8,7 +8,7 @@ class WTRLAB implements Plugin.PluginBase {
   id = 'WTRLAB';
   name = 'WTR-LAB';
   site = 'https://wtr-lab.com/';
-  version = '1.1.4';
+  version = '1.1.5';
   icon = 'src/en/wtrlab/icon.png';
   sourceLang = 'en/';
   baggage = '';
@@ -562,20 +562,53 @@ class WTRLAB implements Plugin.PluginBase {
       });
 
       parsedJson = await apiResponse.json();
-      if (!apiResponse.ok) {
-        if (parsedJson.error) {
-          eLog = parsedJson.error;
-          continue;
+      if (
+        !apiResponse.ok ||
+        parsedJson?.success === false ||
+        parsedJson?.error
+      ) {
+        if (parsedJson?.error || parsedJson?.message) {
+          eLog = parsedJson.error || parsedJson.message;
         }
-      } else if (!parsedJson.error) {
+        continue;
+      } else {
         break;
       }
     }
-    if (parsedJson.success == false) {
-      const errorMsg = parsedJson.message;
+    if (parsedJson?.success === false) {
+      const errorMsg = parsedJson.message || eLog || 'Failed to fetch chapter';
       console.error(errorMsg);
       throw new Error(errorMsg);
     }
+
+    const terms: { zh: string; en: string }[] = [];
+    if (rawId) {
+      try {
+        const termsRes = await fetchApi(
+          `${this.site}api/v2/reader/terms/${rawId}.json`,
+        );
+        if (termsRes.ok) {
+          const termsData = await termsRes.json();
+          if (termsData.success && Array.isArray(termsData.glossaries)) {
+            for (const g of termsData.glossaries) {
+              if (g.data && Array.isArray(g.data.terms)) {
+                for (const item of g.data.terms) {
+                  const enList = item[0];
+                  const zh = item[1];
+                  if (zh && Array.isArray(enList) && enList[0]) {
+                    terms.push({ zh, en: enList[0] });
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch terms:', error);
+      }
+    }
+    terms.sort((a, b) => b.zh.length - a.zh.length);
+
     let chapterContent = parsedJson.data.data.body;
     const chapterGlossary: ChapterContent['glossary_data'] | undefined =
       parsedJson?.data?.data?.glossary_data;
@@ -597,6 +630,17 @@ class WTRLAB implements Plugin.PluginBase {
         htmlString += `<p>${chapterContent.error.toString()}</p>`;
         return htmlString;
       }
+      if (Array.isArray(chapterContent) && terms.length > 0) {
+        chapterContent = chapterContent.map((line: string) => {
+          let l = line;
+          for (const t of terms) {
+            if (l.includes(t.zh)) {
+              l = l.replaceAll(t.zh, t.en);
+            }
+          }
+          return l;
+        });
+      }
       chapterContent = await this.translate(chapterContent);
       htmlString += `<p><small>This is being translated from your device via google translate (source's method) - Login via web view to try for ai translations</small></p>`;
     }
@@ -613,6 +657,48 @@ class WTRLAB implements Plugin.PluginBase {
           /(?:wtr-lab\s+)?※([0-9]+)[⛬〓]/g,
           (m: string, index: string) => dictionary[parseInt(index)] || m,
         );
+      }
+      if (terms.length > 0 && /[\u4e00-\u9fa5]/.test(text)) {
+        for (const t of terms) {
+          if (text.includes(t.zh)) {
+            text = text.replaceAll(t.zh, t.en);
+          }
+        }
+      }
+      if (/[\u4e00-\u9fa5]/.test(text)) {
+        const commonTerms: [RegExp, string][] = [
+          [/(?<=[a-zA-Z0-9\-])异兽/g, ' Strange Beast'],
+          [/异兽/g, 'Strange Beast'],
+          [/(?<=[a-zA-Z0-9\-])宠兽/g, ' Pet Beast'],
+          [/宠兽/g, 'Pet Beast'],
+          [/(?<=[a-zA-Z0-9\-])凶兽/g, ' Fierce Beast'],
+          [/凶兽/g, 'Fierce Beast'],
+          [/(?<=[a-zA-Z0-9\-])魔兽/g, ' Demonic Beast'],
+          [/魔兽/g, 'Demonic Beast'],
+          [/(?<=[a-zA-Z0-9\-])灵兽/g, ' Spiritual Beast'],
+          [/灵兽/g, 'Spiritual Beast'],
+          [/(?<=[a-zA-Z0-9\-])神兽/g, ' Divine Beast'],
+          [/神兽/g, 'Divine Beast'],
+          [/(?<=[a-zA-Z0-9\-])妖兽/g, ' Monster Beast'],
+          [/妖兽/g, 'Monster Beast'],
+          [/(?<=[a-zA-Z0-9\-])幻兽/g, ' Phantom Beast'],
+          [/幻兽/g, 'Phantom Beast'],
+          [/(?<=[a-zA-Z0-9\-])仙兽/g, ' Immortal Beast'],
+          [/仙兽/g, 'Immortal Beast'],
+          [/(?<=[a-zA-Z0-9\-])圣兽/g, ' Sacred Beast'],
+          [/圣兽/g, 'Sacred Beast'],
+          [/(?<=[a-zA-Z0-9\-])瑞兽/g, ' Auspicious Beast'],
+          [/瑞兽/g, 'Auspicious Beast'],
+          [/(?<=[a-zA-Z0-9\-])御兽师/g, ' Beastmaster'],
+          [/御兽师/g, 'Beastmaster'],
+          [/(?<=[a-zA-Z0-9\-])御兽/g, ' Beast Taming'],
+          [/御兽/g, 'Beast Taming'],
+          [/(?<=[a-zA-Z0-9\-])道馆/g, ' Gym'],
+          [/道馆/g, 'Gym'],
+        ];
+        for (const [rule, repl] of commonTerms) {
+          text = text.replace(rule, repl);
+        }
       }
       htmlString += `<p>${text}</p>`;
     }
