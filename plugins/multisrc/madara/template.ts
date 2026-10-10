@@ -442,14 +442,18 @@ export class MadaraPlugin implements Plugin.PluginBase {
       }).then((res: Response) => res.text());
     }
 
-    if (html !== '0') {
-      loadedCheerio = parseHTML(html);
+    if (html && html !== '0') {
+      const parsedChapters = parseHTML(html);
+      if (parsedChapters('.wp-manga-chapter').length > 0) {
+        loadedCheerio = parsedChapters;
+      }
     }
 
-    const totalChapters = loadedCheerio('.wp-manga-chapter').length;
-    loadedCheerio('.wp-manga-chapter').each((chapterIndex, element) => {
+    const parseChapterElement = (
+      element: AnyNode,
+    ): Plugin.ChapterItem | null => {
       let chapterName = loadedCheerio(element).find('a').text().trim();
-      const locked = element.attribs['class'].includes('premium-block');
+      const locked = loadedCheerio(element).hasClass('premium-block');
       if (locked) {
         chapterName = '🔒 ' + chapterName;
       }
@@ -468,16 +472,42 @@ export class MadaraPlugin implements Plugin.PluginBase {
       const chapterUrl = loadedCheerio(element).find('a').attr('href') || '';
 
       if (chapterUrl && chapterUrl != '#' && !(locked && this.hideLocked)) {
-        chapters.push({
+        return {
           name: chapterName,
           path: chapterUrl.replace(/https?:\/\/.*?\//, ''),
           releaseTime: releaseDate || null,
-          chapterNumber: totalChapters - chapterIndex,
-        });
+        };
       }
+      return null;
+    };
+
+    const volumeElements = loadedCheerio(
+      'ul.main > li.has-child, ul.main > li.parent',
+    );
+    if (volumeElements.length > 0) {
+      volumeElements.each((_, volEl) => {
+        const volChapters: Plugin.ChapterItem[] = [];
+        loadedCheerio(volEl)
+          .find('.wp-manga-chapter')
+          .each((_, element) => {
+            const chap = parseChapterElement(element);
+            if (chap) volChapters.push(chap);
+          });
+        chapters.push(...volChapters.reverse());
+      });
+    } else {
+      loadedCheerio('.wp-manga-chapter').each((_, element) => {
+        const chap = parseChapterElement(element);
+        if (chap) chapters.push(chap);
+      });
+      chapters.reverse();
+    }
+
+    chapters.forEach((chapter, index) => {
+      chapter.chapterNumber = index + 1;
     });
 
-    novel.chapters = chapters.reverse();
+    novel.chapters = chapters;
     return novel;
   }
 
