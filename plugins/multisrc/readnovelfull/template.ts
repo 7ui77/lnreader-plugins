@@ -27,6 +27,7 @@ type ReadNovelFullOptions = {
   customJs?: string;
   chapterListPaginated?: boolean;
   imageReferer?: boolean;
+  listClass?: string;
 };
 
 export type ReadNovelFullMetadata = {
@@ -77,6 +78,13 @@ export class ReadNovelFullPlugin implements Plugin.PluginBase {
     let tempNovel: Partial<Plugin.NovelItem> = {};
     let depth: number;
 
+    const { listClass } = this.options;
+    const isListStart = (cls?: string) => {
+      if (!cls) return false;
+      if (listClass) return cls.split(/\s+/).includes(listClass);
+      return cls.includes('archive') || cls === 'col-content'; // legacy behaviour
+    };
+
     const stateStack: ParsingState[] = [ParsingState.Idle];
     const currentState = () => stateStack[stateStack.length - 1];
     const pushState = (state: ParsingState) => stateStack.push(state);
@@ -87,8 +95,8 @@ export class ReadNovelFullPlugin implements Plugin.PluginBase {
       onopentag: (name, attribs) => {
         const state = currentState();
         if (
-          attribs.class?.includes('archive') ||
-          attribs.class === 'col-content'
+          isListStart(attribs.class) &&
+          (!listClass || state === ParsingState.Idle)
         ) {
           pushState(ParsingState.NovelList);
           depth = 0;
