@@ -42,7 +42,7 @@ export class LightNovelWPPlugin implements Plugin.PluginBase {
     this.icon = `multisrc/lightnovelwp/${metadata.id.toLowerCase()}/icon.png`;
     this.site = metadata.sourceSite;
     const versionIncrements = metadata.options?.versionIncrements || 0;
-    this.version = `1.1.${11 + versionIncrements}`;
+    this.version = `1.1.${12 + versionIncrements}`;
     this.options = metadata.options ?? ({} as LightNovelWPOptions);
     this.filters = metadata.filters satisfies Filters;
 
@@ -196,13 +196,6 @@ export class LightNovelWPPlugin implements Plugin.PluginBase {
           isParsingGenres = true;
         } else if (isParsingGenres && name === 'a') {
           isReadingGenre = true;
-        } // summary
-        else if (
-          name === 'div' &&
-          (attribs['class'] === 'entry-content' ||
-            attribs['itemprop'] === 'description')
-        ) {
-          isReadingSummary++;
         } // author and status
         else if (attribs['class'] === 'spe' || attribs['class'] === 'serl') {
           isParsingInfo = true;
@@ -212,6 +205,13 @@ export class LightNovelWPPlugin implements Plugin.PluginBase {
           isParsingInfo = true;
           isReadingInfo = true;
           isReadingStatus = true;
+        } // summary
+        else if (
+          name === 'div' &&
+          (attribs['class'] === 'entry-content' ||
+            attribs['itemprop'] === 'description')
+        ) {
+          isReadingSummary++;
         }
         // chapters
         else if (attribs['class'] && attribs['class'].includes('eplister')) {
@@ -240,9 +240,6 @@ export class LightNovelWPPlugin implements Plugin.PluginBase {
           if (isReadingGenre) {
             novel.genres += data + ', ';
           }
-        } // summary
-        else if (isReadingSummary === 1 && data.trim()) {
-          novel.summary += data;
         } // author and status
         else if (isParsingInfo) {
           if (isReadingInfo) {
@@ -309,6 +306,9 @@ export class LightNovelWPPlugin implements Plugin.PluginBase {
                 break;
             }
           }
+        } // summary
+        else if (isReadingSummary === 1 && data.trim()) {
+          novel.summary += data;
         } // chapters
         else if (isParsingChapterList) {
           if (isReadingChapter) {
@@ -361,17 +361,9 @@ export class LightNovelWPPlugin implements Plugin.PluginBase {
             isParsingGenres = false; // stop parsing genres
             novel.genres = novel.genres?.slice(0, -2); // remove trailing comma
           }
-        } // summary
-        else if (isReadingSummary) {
-          if (name === 'p') {
-            novel.summary += '\n\n';
-          } else if (name === 'br') {
-            novel.summary += '\n';
-          } else if (name === 'div' || name === 'script') {
-            isReadingSummary--;
-          }
-        } // author and status
-        else if (isParsingInfo) {
+        }
+        // author and status
+        if (isParsingInfo) {
           if (isReadingInfo) {
             if (name === 'span') {
               isReadingInfo = false;
@@ -388,8 +380,19 @@ export class LightNovelWPPlugin implements Plugin.PluginBase {
             novel.author = novel.author?.trim();
             novel.artist = novel.artist?.trim();
           }
-        } // chapters
-        else if (isParsingChapterList) {
+        }
+        // summary
+        if (isReadingSummary) {
+          if (name === 'p') {
+            novel.summary += '\n\n';
+          } else if (name === 'br') {
+            novel.summary += '\n';
+          } else if (name === 'div' || name === 'script') {
+            isReadingSummary--;
+          }
+        }
+        // chapters
+        if (isParsingChapterList) {
           if (isReadingChapter) {
             if (isReadingChapterInfo === 1) {
               isReadingChapterInfo = 0;
