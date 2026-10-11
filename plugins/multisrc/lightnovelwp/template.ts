@@ -42,7 +42,7 @@ export class LightNovelWPPlugin implements Plugin.PluginBase {
     this.icon = `multisrc/lightnovelwp/${metadata.id.toLowerCase()}/icon.png`;
     this.site = metadata.sourceSite;
     const versionIncrements = metadata.options?.versionIncrements || 0;
-    this.version = `1.1.${12 + versionIncrements}`;
+    this.version = `1.1.${13 + versionIncrements}`;
     this.options = metadata.options ?? ({} as LightNovelWPOptions);
     this.filters = metadata.filters satisfies Filters;
 
@@ -153,10 +153,31 @@ export class LightNovelWPPlugin implements Plugin.PluginBase {
 
   async parseNovel(novelPath: string): Promise<Plugin.SourceNovel> {
     const baseURL = this.site;
-    const html = await this.safeFecth(baseURL + novelPath, false);
+    const seriesPath = (this.options?.seriesPath ?? '/series/').replace(
+      /^\/+|\/+$/g,
+      '',
+    );
+    let resolvedPath = novelPath;
+
+    if (!novelPath.includes(seriesPath)) {
+      const slug = novelPath.replace(/^\/+/, '').split('/')[0];
+      if (slug) {
+        const candidate = `${seriesPath}/${slug}/`;
+        try {
+          const check = await this.safeFecth(baseURL + candidate, false);
+          if (check.includes('eplister') || check.includes('ts-post-image')) {
+            resolvedPath = candidate;
+          }
+        } catch {
+          // Fall back to original path
+        }
+      }
+    }
+
+    const html = await this.safeFecth(baseURL + resolvedPath, false);
 
     const novel: Plugin.SourceNovel = {
-      path: novelPath,
+      path: resolvedPath,
       name: '',
       genres: '',
       summary: '',
@@ -425,6 +446,21 @@ export class LightNovelWPPlugin implements Plugin.PluginBase {
     }
 
     novel.summary = novel.summary.trim();
+    if (!novel.summary) {
+      const descMatch =
+        html.match(
+          /<div[^>]*class=["'][^"']*\bdesc\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+        ) ||
+        html.match(
+          /<div[^>]*class=["'][^"']*\bmindesc\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+        );
+      if (descMatch) {
+        novel.summary = descMatch[1].replace(/<[^>]+>/g, '').trim();
+      }
+    }
+    if (novel.genres === 'Author') {
+      novel.genres = '';
+    }
 
     return novel;
   }
