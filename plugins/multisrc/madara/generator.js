@@ -21,10 +21,11 @@ export const generateAll = function () {
   });
 };
 
+const madaraTemplate = readFileSync(join(folder, 'template.ts'), {
+  encoding: 'utf-8',
+});
+
 const generator = function generator(source) {
-  const madaraTemplate = readFileSync(join(folder, 'template.ts'), {
-    encoding: 'utf-8',
-  });
 
   const pluginScript = `
 ${madaraTemplate.replace('// CustomJS HERE', source.options?.customJs || '')}
