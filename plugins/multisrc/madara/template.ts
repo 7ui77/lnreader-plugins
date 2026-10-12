@@ -427,9 +427,7 @@ export class MadaraPlugin implements Plugin.PluginBase {
                     headers: this.requestHeaders,
                     referrer: this.site + novelPath,
                   },
-                )
-                  .then((res: Response) => res.text())
-                  .catch(() => ''),
+                ).then((res: Response) => res.text()),
               ),
             );
             for (const pageHtml of batchHtmls) {
